@@ -22,7 +22,6 @@ async def is_subscribed(user_id: int) -> bool:
     except Exception:
         return False
 
-
 async def check_sub(callback: types.CallbackQuery) -> bool:
     if await is_subscribed(callback.from_user.id):
         return True
@@ -81,13 +80,11 @@ PENDING: dict = {}
 MAX_PLAYERS_MIN, MAX_PLAYERS_MAX = 3, 10
 MIN_ROUNDS_MIN, MIN_ROUNDS_MAX = 1, 10
 
-
 def generate_room_id():
     while True:
         rid = str(random.randint(1000, 9999))
         if rid not in ROOMS:
             return rid
-
 
 def main_menu_kb():
     return types.InlineKeyboardMarkup(inline_keyboard=[
@@ -95,13 +92,11 @@ def main_menu_kb():
         [types.InlineKeyboardButton(text="🚪 Присоединиться к комнате", callback_data="menu_join")],
     ])
 
-
 MODE_LABELS = {
     "standard": "🕵️ Стандартный шпион",
     "wrong_pick": "🎭 Ошибочный пик",
 }
 MODE_NEXT = {"standard": "wrong_pick", "wrong_pick": "standard"}
-
 
 def room_lobby_kb(room_id: str, is_host: bool):
     if is_host:
@@ -121,7 +116,6 @@ def room_lobby_kb(room_id: str, is_host: bool):
             [types.InlineKeyboardButton(text="🚪 Покинуть комнату", callback_data=f"leave_{room_id}")],
         ]
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
-
 
 def settings_kb(room_id: str) -> types.InlineKeyboardMarkup:
     room = ROOMS[room_id]
@@ -151,7 +145,6 @@ def settings_kb(room_id: str) -> types.InlineKeyboardMarkup:
     rows.append([types.InlineKeyboardButton(text="🔙 Назад в лобби", callback_data=f"settback_{room_id}")])
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
 
-
 def heroes_page_kb(room_id: str, page: int) -> types.InlineKeyboardMarkup:
     start = page * HEROES_PER_PAGE
     end = min(start + HEROES_PER_PAGE, len(HEROES))
@@ -178,7 +171,6 @@ def heroes_page_kb(room_id: str, page: int) -> types.InlineKeyboardMarkup:
 
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
-
 def suspect_kb(room_id: str, voter_id: int) -> types.InlineKeyboardMarkup:
     room = ROOMS[room_id]
     rows = []
@@ -190,7 +182,6 @@ def suspect_kb(room_id: str, voter_id: int) -> types.InlineKeyboardMarkup:
             callback_data=f"svote_{room_id}_{p_id}"
         )])
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
-
 
 def lobby_text(room_id: str) -> str:
     room = ROOMS[room_id]
@@ -210,10 +201,8 @@ def lobby_text(room_id: str) -> str:
         text += f"• {room['names'][p_id]}{crown}\n"
     return text
 
-
 def peaceful_players(room: dict) -> list:
     return [p for p in room["players"] if p != room["spy"]]
-
 
 async def notify_current_player(room_id: str):
     room = ROOMS[room_id]
@@ -245,7 +234,6 @@ async def notify_current_player(room_id: str):
         except Exception:
             pass
 
-
 async def open_round_vote(room_id: str):
     room = ROOMS[room_id]
     room["phase"] = "round_vote"
@@ -266,7 +254,6 @@ async def open_round_vote(room_id: str):
         except Exception:
             pass
 
-
 async def open_final_vote(room_id: str):
     room = ROOMS[room_id]
     room["phase"] = "final_vote"
@@ -284,7 +271,6 @@ async def open_final_vote(room_id: str):
             )
         except Exception:
             pass
-
 
 async def open_spy_guessing(room_id: str, vote_summary: str):
     room = ROOMS[room_id]
@@ -313,7 +299,6 @@ async def open_spy_guessing(room_id: str, vote_summary: str):
                 )
         except Exception:
             pass
-
 
 async def resolve_after_spy_guess(room_id: str):
     room = ROOMS[room_id]
@@ -354,7 +339,6 @@ async def resolve_after_spy_guess(room_id: str):
 
     await finish_game(room_id, result)
 
-
 async def finish_game(room_id: str, result_text: str):
     if room_id not in ROOMS:
         return
@@ -383,7 +367,6 @@ async def finish_game(room_id: str, result_text: str):
                                    reply_markup=kb, parse_mode="Markdown")
         except Exception:
             pass
-
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -414,7 +397,6 @@ async def cmd_start(message: types.Message):
         f"Привет, {message.from_user.first_name}! 👋\nВыбери действие:",
         reply_markup=main_menu_kb(), parse_mode="Markdown"
     )
-
 
 @dp.message(F.text)
 async def handle_text(message: types.Message):
@@ -483,7 +465,6 @@ async def handle_text(message: types.Message):
         except Exception:
             pass
 
-
 @dp.callback_query(F.data == "check_sub")
 async def handle_check_sub(callback: types.CallbackQuery):
     if await is_subscribed(callback.from_user.id):
@@ -491,7 +472,6 @@ async def handle_check_sub(callback: types.CallbackQuery):
         await callback.answer("Подписка подтверждена!")
     else:
         await callback.answer("Ты ещё не подписан на канал!", show_alert=True)
-
 
 @dp.callback_query(F.data == "menu_create")
 async def menu_create(callback: types.CallbackQuery):
@@ -526,7 +506,6 @@ async def menu_create(callback: types.CallbackQuery):
                                      parse_mode="Markdown")
     await callback.answer()
 
-
 @dp.callback_query(F.data == "menu_join")
 async def menu_join(callback: types.CallbackQuery):
     if not await check_sub(callback):
@@ -557,12 +536,10 @@ async def menu_join(callback: types.CallbackQuery):
                                      parse_mode="Markdown")
     await callback.answer()
 
-
 @dp.callback_query(F.data == "menu_back")
 async def menu_back(callback: types.CallbackQuery):
     await callback.message.edit_text("Выбери действие:", reply_markup=main_menu_kb())
     await callback.answer()
-
 
 @dp.callback_query(F.data.startswith("joinroom_"))
 async def join_room(callback: types.CallbackQuery):
@@ -610,7 +587,6 @@ async def join_room(callback: types.CallbackQuery):
     except Exception:
         pass
 
-
 @dp.callback_query(F.data.startswith("togglemode_"))
 async def toggle_mode(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -637,7 +613,6 @@ async def toggle_mode(callback: types.CallbackQuery):
         pass
     await callback.answer(f"Режим: {new_label}")
 
-
 @dp.callback_query(F.data.startswith("settings_"))
 async def open_settings(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -657,7 +632,6 @@ async def open_settings(callback: types.CallbackQuery):
     )
     await callback.answer()
 
-
 @dp.callback_query(F.data.startswith("settback_"))
 async def settings_back(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -668,7 +642,6 @@ async def settings_back(callback: types.CallbackQuery):
                                      reply_markup=room_lobby_kb(room_id, True),
                                      parse_mode="Markdown")
     await callback.answer()
-
 
 @dp.callback_query(F.data.startswith("sett_"))
 async def handle_setting(callback: types.CallbackQuery):
@@ -727,7 +700,6 @@ async def handle_setting(callback: types.CallbackQuery):
         pass
     await callback.answer()
 
-
 @dp.callback_query(F.data.startswith("kickmenu_"))
 async def kick_menu(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -761,7 +733,6 @@ async def kick_menu(callback: types.CallbackQuery):
     )
     await callback.answer()
 
-
 @dp.callback_query(F.data.startswith("kickback_"))
 async def kick_back(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -772,7 +743,6 @@ async def kick_back(callback: types.CallbackQuery):
                                      reply_markup=room_lobby_kb(room_id, True),
                                      parse_mode="Markdown")
     await callback.answer()
-
 
 @dp.callback_query(F.data.startswith("kick_"))
 async def kick_player(callback: types.CallbackQuery):
@@ -811,7 +781,6 @@ async def kick_player(callback: types.CallbackQuery):
     except Exception:
         pass
 
-
 @dp.callback_query(F.data.startswith("refresh_"))
 async def refresh_room(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -826,7 +795,6 @@ async def refresh_room(callback: types.CallbackQuery):
     except Exception:
         pass
     await callback.answer("Обновлено!")
-
 
 @dp.callback_query(F.data.startswith("leave_"))
 async def leave_room(callback: types.CallbackQuery):
@@ -851,7 +819,6 @@ async def leave_room(callback: types.CallbackQuery):
         await bot.send_message(room["host"], f"➖ {callback.from_user.full_name} покинул комнату №{room_id}.")
     except Exception:
         pass
-
 
 @dp.callback_query(F.data.startswith("dissolve_"))
 async def dissolve_room(callback: types.CallbackQuery):
@@ -881,7 +848,6 @@ async def dissolve_room(callback: types.CallbackQuery):
             await bot.send_message(p_id, f"💥 Комната №{room_id} распущена хостом.", reply_markup=main_menu_kb())
         except Exception:
             pass
-
 
 @dp.callback_query(F.data.startswith("startgame_"))
 async def start_game(callback: types.CallbackQuery):
@@ -961,7 +927,6 @@ async def start_game(callback: types.CallbackQuery):
 
     await notify_current_player(room_id)
 
-
 @dp.callback_query(F.data.startswith("nextturn_"))
 async def next_turn(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -1004,7 +969,6 @@ async def next_turn(callback: types.CallbackQuery):
             await notify_current_player(room_id)
     else:
         await notify_current_player(room_id)
-
 
 @dp.callback_query(F.data.startswith("rvote_"))
 async def round_vote(callback: types.CallbackQuery):
@@ -1066,7 +1030,6 @@ async def round_vote(callback: types.CallbackQuery):
                 pass
         await notify_current_player(room_id)
 
-
 @dp.callback_query(F.data.startswith("spypage_"))
 async def spy_page_turn(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -1091,11 +1054,9 @@ async def spy_page_turn(callback: types.CallbackQuery):
     )
     await callback.answer()
 
-
 @dp.callback_query(F.data == "noop")
 async def noop(callback: types.CallbackQuery):
     await callback.answer()
-
 
 @dp.callback_query(F.data.startswith("vote_"))
 async def spy_hero_pick(callback: types.CallbackQuery):
@@ -1134,7 +1095,6 @@ async def spy_hero_pick(callback: types.CallbackQuery):
         pass
     await callback.answer()
     await resolve_after_spy_guess(room_id)
-
 
 @dp.callback_query(F.data.startswith("svote_"))
 async def all_player_vote(callback: types.CallbackQuery):
@@ -1230,7 +1190,6 @@ async def all_player_vote(callback: types.CallbackQuery):
     else:
         await open_spy_guessing(room_id, vote_summary)
 
-
 @dp.callback_query(F.data.startswith("stayroom_"))
 async def stay_in_room(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -1247,7 +1206,6 @@ async def stay_in_room(callback: types.CallbackQuery):
                                      parse_mode="Markdown")
     await callback.answer("Остался в комнате!")
 
-
 @dp.callback_query(F.data.startswith("quitroom_"))
 async def quit_room(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -1261,14 +1219,13 @@ async def quit_room(callback: types.CallbackQuery):
             room["names"].pop(user_id, None)
         try:
             await bot.send_message(room["host"],
-                f"➖ {callback.from_name} покинул комнату №{room_id}.")
+                f"➖ {callback.from_user.full_name} покинул комнату №{room_id}.")
         except Exception:
             pass
 
     PLAYER_TO_ROOM.pop(user_id, None)
     await callback.message.edit_text("Ты покинул комнату.", reply_markup=main_menu_kb())
     await callback.answer()
-
 
 # Главная асинхронная точка входа
 async def start_bot():
