@@ -1327,9 +1327,35 @@ async def quit_room(callback: types.CallbackQuery):
 
 # ─── Запуск ───────────────────────────────────────────────────────────────────
 
-async def main():
-    print("Spy Game Bot запущен!")
+
+# Твой стандартный запуск бота через long polling
+async def start_bot():
+    print("Spy Game Бот запущен!")
     await dp.start_polling(bot)
+
+# Крошечный веб-сервер для обмана Render
+async def handle(request):
+    return web.Response(text="Бот работает!")
+
+async def main():
+    # Запускаем бота в фоновом режиме
+    asyncio.create_task(start_bot())
+    
+    # Запускаем веб-сервер на порту, который требует Render
+    app = web.Application()
+    app.router.add_get('/', handle)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # Render автоматически передает нужный порт в переменную окружения PORT
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    
+    # Держим сервер и бота запущенными
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     asyncio.run(main())
