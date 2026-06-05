@@ -3,6 +3,7 @@ import random
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
+from aiohttp import web
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 REQUIRED_CHANNEL = "@spygame24"
@@ -10,6 +11,9 @@ REQUIRED_CHANNEL = "@spygame24"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Крошечный веб-сервер для обмана Render (чтобы он видел открытый веб-порт)
+async def handle(request):
+    return web.Response(text="Бот работает успешно!")
 
 async def is_subscribed(user_id: int) -> bool:
     try:
@@ -70,16 +74,8 @@ HEROES = [
 
 HEROES_PER_PAGE = 20
 
-# Фазы игры:
-#   "rounds"       — идут круги
-#   "round_vote"   — голосование: продолжить или перейти к финалу
-#   "final_vote"   — все игроки голосуют за шпиона
-#   "spy_guessing" — шпион выбирает героя, остальные ждут
-
 ROOMS: dict = {}
 PLAYER_TO_ROOM: dict = {}
-# Ожидание текстового ввода от пользователя
-# { user_id: { "action": "set_password"|"enter_password", "room_id": str } }
 PENDING: dict = {}
 
 MAX_PLAYERS_MIN, MAX_PLAYERS_MAX = 3, 10
@@ -92,8 +88,6 @@ def generate_room_id():
         if rid not in ROOMS:
             return rid
 
-
-# ─── Клавиатуры ───────────────────────────────────────────────────────────────
 
 def main_menu_kb():
     return types.InlineKeyboardMarkup(inline_keyboard=[
@@ -198,8 +192,6 @@ def suspect_kb(room_id: str, voter_id: int) -> types.InlineKeyboardMarkup:
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-# ─── Текст лобби ──────────────────────────────────────────────────────────────
-
 def lobby_text(room_id: str) -> str:
     room = ROOMS[room_id]
     pwd = room.get("password")
@@ -218,8 +210,6 @@ def lobby_text(room_id: str) -> str:
         text += f"• {room['names'][p_id]}{crown}\n"
     return text
 
-
-# ─── Вспомогательные функции ──────────────────────────────────────────────────
 
 def peaceful_players(room: dict) -> list:
     return [p for p in room["players"] if p != room["spy"]]
@@ -395,8 +385,6 @@ async def finish_game(room_id: str, result_text: str):
             pass
 
 
-# ─── /start ───────────────────────────────────────────────────────────────────
-
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
@@ -428,8 +416,6 @@ async def cmd_start(message: types.Message):
     )
 
 
-# ─── Обработчик текстовых сообщений (пароли) ─────────────────────────────────
-
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     user_id = message.from_user.id
@@ -441,7 +427,6 @@ async def handle_text(message: types.Message):
     room_id = pending["room_id"]
     PENDING.pop(user_id, None)
 
-    # ── Установка пароля хостом ──
     if action == "set_password":
         if room_id not in ROOMS:
             await message.answer("Комната больше не существует.")
@@ -462,7 +447,6 @@ async def handle_text(message: types.Message):
                              reply_markup=room_lobby_kb(room_id, True),
                              parse_mode="Markdown")
 
-    # ── Ввод пароля при входе ──
     elif action == "enter_password":
         if room_id not in ROOMS:
             await message.answer("Комната больше не существует.", reply_markup=main_menu_kb())
@@ -475,7 +459,6 @@ async def handle_text(message: types.Message):
                                  reply_markup=main_menu_kb())
             return
 
-        # Пароль верный — добавляем в комнату
         if user_id in PLAYER_TO_ROOM:
             await message.answer("Ты уже в другой комнате!")
             return
@@ -500,8 +483,6 @@ async def handle_text(message: types.Message):
         except Exception:
             pass
 
-
-# ─── Меню: создать комнату ────────────────────────────────────────────────────
 
 @dp.callback_query(F.data == "check_sub")
 async def handle_check_sub(callback: types.CallbackQuery):
@@ -532,7 +513,6 @@ async def menu_create(callback: types.CallbackQuery):
         "turn_order": [], "turn_idx": 0, "round_num": 0,
         "round_votes": {}, "votes": {}, "spy_guess": None,
         "voting_open": False,
-        # Настройки
         "password": None,
         "max_players": 6,
         "min_rounds": 2,
@@ -546,8 +526,6 @@ async def menu_create(callback: types.CallbackQuery):
                                      parse_mode="Markdown")
     await callback.answer()
 
-
-# ─── Меню: список комнат ──────────────────────────────────────────────────────
 
 @dp.callback_query(F.data == "menu_join")
 async def menu_join(callback: types.CallbackQuery):
@@ -586,8 +564,6 @@ async def menu_back(callback: types.CallbackQuery):
     await callback.answer()
 
 
-# ─── Вход в комнату ───────────────────────────────────────────────────────────
-
 @dp.callback_query(F.data.startswith("joinroom_"))
 async def join_room(callback: types.CallbackQuery):
     if not await check_sub(callback):
@@ -610,7 +586,6 @@ async def join_room(callback: types.CallbackQuery):
         await callback.answer(f"Комната заполнена ({room['max_players']}/{room['max_players']}).", show_alert=True)
         return
 
-    # Комната с паролем — запрашиваем ввод текстом
     if room.get("password"):
         PENDING[user_id] = {"action": "enter_password", "room_id": room_id}
         await callback.message.edit_text(
@@ -622,7 +597,6 @@ async def join_room(callback: types.CallbackQuery):
         await callback.answer()
         return
 
-    # Открытая комната — входим сразу
     room["players"].append(user_id)
     room["names"][user_id] = callback.from_user.full_name
     PLAYER_TO_ROOM[user_id] = room_id
@@ -636,8 +610,6 @@ async def join_room(callback: types.CallbackQuery):
     except Exception:
         pass
 
-
-# ─── Переключение режима ──────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("togglemode_"))
 async def toggle_mode(callback: types.CallbackQuery):
@@ -665,8 +637,6 @@ async def toggle_mode(callback: types.CallbackQuery):
         pass
     await callback.answer(f"Режим: {new_label}")
 
-
-# ─── Настройки комнаты ────────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("settings_"))
 async def open_settings(callback: types.CallbackQuery):
@@ -758,8 +728,6 @@ async def handle_setting(callback: types.CallbackQuery):
     await callback.answer()
 
 
-# ─── Кик игрока ──────────────────────────────────────────────────────────────
-
 @dp.callback_query(F.data.startswith("kickmenu_"))
 async def kick_menu(callback: types.CallbackQuery):
     room_id = callback.data.split("_")[1]
@@ -829,13 +797,11 @@ async def kick_player(callback: types.CallbackQuery):
     room["names"].pop(target_id, None)
     PLAYER_TO_ROOM.pop(target_id, None)
 
-    # Возвращаем хоста в лобби
     await callback.message.edit_text(lobby_text(room_id),
                                      reply_markup=room_lobby_kb(room_id, True),
                                      parse_mode="Markdown")
     await callback.answer(f"{target_name} кикнут!")
 
-    # Уведомляем кикнутого
     try:
         await bot.send_message(
             target_id,
@@ -845,8 +811,6 @@ async def kick_player(callback: types.CallbackQuery):
     except Exception:
         pass
 
-
-# ─── Обновить лобби ───────────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("refresh_"))
 async def refresh_room(callback: types.CallbackQuery):
@@ -863,8 +827,6 @@ async def refresh_room(callback: types.CallbackQuery):
         pass
     await callback.answer("Обновлено!")
 
-
-# ─── Покинуть лобби ───────────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("leave_"))
 async def leave_room(callback: types.CallbackQuery):
@@ -890,8 +852,6 @@ async def leave_room(callback: types.CallbackQuery):
     except Exception:
         pass
 
-
-# ─── Распустить комнату ───────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("dissolve_"))
 async def dissolve_room(callback: types.CallbackQuery):
@@ -922,8 +882,6 @@ async def dissolve_room(callback: types.CallbackQuery):
         except Exception:
             pass
 
-
-# ─── Начать игру ──────────────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("startgame_"))
 async def start_game(callback: types.CallbackQuery):
@@ -995,7 +953,7 @@ async def start_game(callback: types.CallbackQuery):
                         parse_mode="Markdown")
                 else:
                     await bot.send_message(p_id,
-                        f"🟢 **ТВОЯ РОЛЬ: МИРНЫЙ ИГРОК**\n\nСекретный герой: `{main_hero}`\n\n"
+                        f"🟢 **ТВОЯ РОЛЬ: МИРНЫЙ ИГРОК**\n\nСекретного героя: `{main_hero}`\n\n"
                         f"Давай подсказки по очереди!",
                         parse_mode="Markdown")
         except Exception:
@@ -1003,8 +961,6 @@ async def start_game(callback: types.CallbackQuery):
 
     await notify_current_player(room_id)
 
-
-# ─── Передача хода ────────────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("nextturn_"))
 async def next_turn(callback: types.CallbackQuery):
@@ -1049,8 +1005,6 @@ async def next_turn(callback: types.CallbackQuery):
     else:
         await notify_current_player(room_id)
 
-
-# ─── Голосование между кругами ────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("rvote_"))
 async def round_vote(callback: types.CallbackQuery):
@@ -1113,8 +1067,6 @@ async def round_vote(callback: types.CallbackQuery):
         await notify_current_player(room_id)
 
 
-# ─── Листание страниц героев (spy_guessing) ──────────────────────────────────
-
 @dp.callback_query(F.data.startswith("spypage_"))
 async def spy_page_turn(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -1144,8 +1096,6 @@ async def spy_page_turn(callback: types.CallbackQuery):
 async def noop(callback: types.CallbackQuery):
     await callback.answer()
 
-
-# ─── Шпион: выбор героя ───────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("vote_"))
 async def spy_hero_pick(callback: types.CallbackQuery):
@@ -1185,8 +1135,6 @@ async def spy_hero_pick(callback: types.CallbackQuery):
     await callback.answer()
     await resolve_after_spy_guess(room_id)
 
-
-# ─── Все игроки голосуют за шпиона ───────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("svote_"))
 async def all_player_vote(callback: types.CallbackQuery):
@@ -1254,7 +1202,6 @@ async def all_player_vote(callback: types.CallbackQuery):
                 pass
         await notify_current_player(room_id)
     elif room.get("mode") == "wrong_pick":
-        # В режиме "Ошибочный пик" нет фазы угадывания — сразу результат
         accused_id = leaders[0]
         accused_name = room["names"].get(accused_id, "???")
         spy_id = room["spy"]
@@ -1283,8 +1230,6 @@ async def all_player_vote(callback: types.CallbackQuery):
     else:
         await open_spy_guessing(room_id, vote_summary)
 
-
-# ─── Остаться / покинуть после игры ──────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("stayroom_"))
 async def stay_in_room(callback: types.CallbackQuery):
@@ -1316,7 +1261,7 @@ async def quit_room(callback: types.CallbackQuery):
             room["names"].pop(user_id, None)
         try:
             await bot.send_message(room["host"],
-                f"➖ {callback.from_user.full_name} покинул комнату №{room_id}.")
+                f"➖ {callback.from_name} покинул комнату №{room_id}.")
         except Exception:
             pass
 
@@ -1325,35 +1270,28 @@ async def quit_room(callback: types.CallbackQuery):
     await callback.answer()
 
 
-# ─── Запуск ───────────────────────────────────────────────────────────────────
-
-
-# Твой стандартный запуск бота через long polling
+# Главная асинхронная точка входа
 async def start_bot():
     print("Spy Game Бот запущен!")
     await dp.start_polling(bot)
 
-# Крошечный веб-сервер для обмана Render
-async def handle(request):
-    return web.Response(text="Бот работает!")
-
 async def main():
-    # Запускаем бота в фоновом режиме
+    # Запускаем поллинг бота в фоновом таске
     asyncio.create_task(start_bot())
     
-    # Запускаем веб-сервер на порту, который требует Render
+    # Настраиваем веб-сервер для удержания порта на Render
     app = web.Application()
     app.router.add_get('/', handle)
     
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # Render автоматически передает нужный порт в переменную окружения PORT
+    # Переменная PORT подставляется Render автоматически
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     
-    # Держим сервер и бота запущенными
+    # Поддерживаем бесконечную работу приложения
     while True:
         await asyncio.sleep(3600)
 
